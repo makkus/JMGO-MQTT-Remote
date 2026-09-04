@@ -32,12 +32,14 @@ static const uint32_t LAN_OK_DELAY_MS = 2000;
 static const uint32_t LAN_POWER_OFF_STEP_DELAY_MS = 250;
 static const uint32_t POWER_ON_TO_HDMI_DELAY_MS = 60000;
 
-// Timings: HDMI1 macro tuning
+// HDMI input macro tuning.
 static const uint32_t HDMI_AFTER_UPS_DELAY_MS = 50;
 static const uint32_t HDMI_RIGHT_STEP_DELAY_MS = 300;
 static const uint32_t HDMI_AFTER_RIGHTS_DELAY_MS = 2000;
 static const uint32_t HDMI_AFTER_FIRST_OK_DELAY_MS = 2000;
 static const uint32_t HDMI_AFTER_SECOND_OK_DELAY_MS = 0;
+static const uint8_t HDMI1_RIGHT_PRESSES = 4;
+static const uint8_t HDMI2_RIGHT_PRESSES = 4;
 
 // Timings: BLE wake advertising
 static const uint32_t WAKE_TOTAL_MS = 4000;
@@ -57,11 +59,11 @@ static bool otaStarted = false;
 
 // ===================== JMGO BLE wake advertising =====================
 static const uint8_t WAKE_PAYLOADS[][14] = {
-  {0x46, 0x00, 0x01, 0x69, 0xc5, 0x98, 0xc4, 0xd8, 0xe0, 0xff, 0xff, 0xff, 0xff, 0xff},
-  {0x46, 0x00, 0x02, 0x69, 0xc5, 0x98, 0xc4, 0xd8, 0xe0, 0xff, 0xff, 0xff, 0xff, 0xff},
-  {0x46, 0x00, 0x03, 0x69, 0xc5, 0x98, 0xc4, 0xd8, 0xe0, 0xff, 0xff, 0xff, 0xff, 0xff},
-  {0x46, 0x00, 0x04, 0x69, 0xc5, 0x98, 0xc4, 0xd8, 0xe0, 0xff, 0xff, 0xff, 0xff, 0xff},
-  {0x46, 0x00, 0x05, 0x69, 0xc5, 0x98, 0xc4, 0xd8, 0xe0, 0xff, 0xff, 0xff, 0xff, 0xff},
+  {0x46, 0x00, 0x01, SECRET_PROJECTOR_BLE_MAC_REVERSED, 0xff, 0xff, 0xff, 0xff, 0xff},
+  {0x46, 0x00, 0x02, SECRET_PROJECTOR_BLE_MAC_REVERSED, 0xff, 0xff, 0xff, 0xff, 0xff},
+  {0x46, 0x00, 0x03, SECRET_PROJECTOR_BLE_MAC_REVERSED, 0xff, 0xff, 0xff, 0xff, 0xff},
+  {0x46, 0x00, 0x04, SECRET_PROJECTOR_BLE_MAC_REVERSED, 0xff, 0xff, 0xff, 0xff, 0xff},
+  {0x46, 0x00, 0x05, SECRET_PROJECTOR_BLE_MAC_REVERSED, 0xff, 0xff, 0xff, 0xff, 0xff},
 };
 
 static const int WAKE_PAYLOAD_COUNT = sizeof(WAKE_PAYLOADS) / sizeof(WAKE_PAYLOADS[0]);
@@ -173,14 +175,16 @@ static bool tapLanKey(const LanKey& key, uint32_t afterDelayMs = LAN_STEP_DELAY_
   return true;
 }
 
-static void macroHdmi1Lan() {
-  publishState("hdmi1_start");
+static void macroHdmiLan(const char* inputName, uint8_t rightPresses) {
+  char state[24];
+  snprintf(state, sizeof(state), "%s_start", inputName);
+  publishState(state);
 
   tapLanKey(KEY_UP);
   tapLanKey(KEY_UP);
   waitMs(HDMI_AFTER_UPS_DELAY_MS);
 
-  for (int i = 0; i < 4; i++) {
+  for (uint8_t i = 0; i < rightPresses; i++) {
     tapLanKey(KEY_RIGHT, HDMI_RIGHT_STEP_DELAY_MS);
   }
   waitMs(HDMI_AFTER_RIGHTS_DELAY_MS);
@@ -189,7 +193,31 @@ static void macroHdmi1Lan() {
   tapLanKey(KEY_OK, HDMI_AFTER_SECOND_OK_DELAY_MS);
   tapLanKey(KEY_OK, HDMI_AFTER_SECOND_OK_DELAY_MS);
   
-  publishState("hdmi1_done");
+  snprintf(state, sizeof(state), "%s_done", inputName);
+  publishState(state);
+}
+
+static void macroHdmi1Lan() {
+  macroHdmiLan("hdmi1", HDMI1_RIGHT_PRESSES);
+}
+
+static void macroHdmi2Lan() {
+  publishState("hdmi2_start");
+
+  tapLanKey(KEY_UP);
+  tapLanKey(KEY_UP);
+  waitMs(HDMI_AFTER_UPS_DELAY_MS);
+
+  for (uint8_t i = 0; i < HDMI2_RIGHT_PRESSES; i++) {
+    tapLanKey(KEY_RIGHT, HDMI_RIGHT_STEP_DELAY_MS);
+  }
+  waitMs(HDMI_AFTER_RIGHTS_DELAY_MS);
+
+  tapLanKey(KEY_OK, HDMI_AFTER_FIRST_OK_DELAY_MS);
+  tapLanKey(KEY_DOWN);
+  tapLanKey(KEY_OK, HDMI_AFTER_SECOND_OK_DELAY_MS);
+
+  publishState("hdmi2_done");
 }
 
 static void macroPowerOffLan() {
@@ -211,6 +239,17 @@ static void macroPowerOnHdmi1() {
   waitMs(POWER_ON_TO_HDMI_DELAY_MS);
 
   macroHdmi1Lan();
+}
+
+static void macroPowerOnHdmi2() {
+  publishState("power_on_start");
+  sendWakeAdvertisingBurst();
+
+  Serial.printf("Waiting %lu ms before HDMI2 macro...\n", POWER_ON_TO_HDMI_DELAY_MS);
+  publishState("power_on_wait");
+  waitMs(POWER_ON_TO_HDMI_DELAY_MS);
+
+  macroHdmi2Lan();
 }
 
 // ===================== BLE init =====================
@@ -298,8 +337,12 @@ static void mqttCallback(char* topic, byte* payload, unsigned int len) {
     sendWakeAdvertisingBurst();
   } else if (msg == "on" || msg == "wake_hdmi1" || msg == "power_on") {
     macroPowerOnHdmi1();
+  } else if (msg == "wake_hdmi2") {
+    macroPowerOnHdmi2();
   } else if (msg == "hdmi1") {
     macroHdmi1Lan();
+  } else if (msg == "hdmi2") {
+    macroHdmi2Lan();
   } else if (msg == "power_menu") {
     publishState("power_menu_start");
     tapLanKey(KEY_POWER_MENU, 0);
@@ -363,7 +406,7 @@ void setup() {
   mqtt.setCallback(mqttCallback);
   mqttEnsureConnected();
 
-  Serial.println("Ready. Publish 'wake', 'on', 'hdmi1', 'power_menu', 'power_off', 'up', 'down', 'right', or 'ok' to jmgo/remote/cmd");
+  Serial.println("Ready. Publish 'wake', 'on', 'hdmi1', 'hdmi2', 'wake_hdmi2', 'power_menu', 'power_off', 'up', 'down', 'right', or 'ok' to jmgo/remote/cmd");
 }
 
 void loop() {

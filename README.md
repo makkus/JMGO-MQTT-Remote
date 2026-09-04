@@ -57,7 +57,9 @@ Supported commands:
 | --- | --- |
 | `wake` | Sends only the BLE wake burst |
 | `on`, `wake_hdmi1`, `power_on` | Wakes the projector, waits for startup, then selects HDMI1 |
+| `wake_hdmi2` | Wakes the projector, waits for startup, then selects HDMI2 |
 | `hdmi1` | Runs the LAN navigation macro for HDMI1 |
+| `hdmi2` | Runs the LAN navigation macro for HDMI2 |
 | `power_menu` | Opens the projector power menu |
 | `power_off`, `off` | Opens the power menu, moves down, and confirms shutdown |
 | `up`, `down`, `right`, `ok`, `enter` | Sends individual LAN remote keys |
@@ -95,4 +97,3 @@ Monitor serial output:
 ```bash
 pio device monitor -b 115200
 ```
-
