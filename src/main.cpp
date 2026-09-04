@@ -22,12 +22,15 @@ static const uint16_t PROJECTOR_PORT = SECRET_PROJECTOR_PORT;
 
 // MQTT topics
 static const char* TOPIC_CMD   = "jmgo/remote/cmd";
+static const char* TOPIC_SEQUENCE = "jmgo/remote/sequence";
 static const char* TOPIC_STATE = "jmgo/remote/state";
 
 // Timings: LAN projector commands
 static const uint32_t PROJECTOR_LAN_TIMEOUT_MS = 3000;
 static const uint32_t LAN_KEY_DELAY_MS = 120;
 static const uint32_t LAN_STEP_DELAY_MS = 120;
+static const uint32_t LAN_SEQUENCE_MAX_DELAY_MS = 60000;
+static const size_t LAN_SEQUENCE_MAX_KEYS = 16;
 static const uint32_t LAN_OK_DELAY_MS = 2000;
 static const uint32_t LAN_POWER_OFF_STEP_DELAY_MS = 250;
 static const uint32_t POWER_ON_TO_HDMI_DELAY_MS = 60000;
@@ -45,7 +48,6 @@ static const uint8_t HDMI2_RIGHT_PRESSES = 4;
 static const uint32_t WAKE_TOTAL_MS = 4000;
 static const uint32_t WAKE_PAYLOAD_ADV_MS = 250;
 static const uint32_t WAKE_PAYLOAD_GAP_MS = 30;
-
 // Timings: Wi-Fi, MQTT, startup
 static const uint32_t STARTUP_DELAY_MS = 3000;
 static const uint32_t WIFI_CONNECT_POLL_MS = 300;
@@ -76,10 +78,26 @@ static const uint8_t LAN_UP_PRESS[]    = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x
 static const uint8_t LAN_UP_RELEASE[]  = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x13, 0x10, 0x00};
 static const uint8_t LAN_DOWN_PRESS[]  = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x14, 0x10, 0x01};
 static const uint8_t LAN_DOWN_RELEASE[]= {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x14, 0x10, 0x00};
+static const uint8_t LAN_LEFT_PRESS[]  = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x15, 0x10, 0x01};
+static const uint8_t LAN_LEFT_RELEASE[]= {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x15, 0x10, 0x00};
 static const uint8_t LAN_RIGHT_PRESS[] = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x16, 0x10, 0x01};
 static const uint8_t LAN_RIGHT_RELEASE[]={0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x16, 0x10, 0x00};
 static const uint8_t LAN_OK_PRESS[]    = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x17, 0x10, 0x01};
 static const uint8_t LAN_OK_RELEASE[]  = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x17, 0x10, 0x00};
+static const uint8_t LAN_VOLUME_UP_PRESS[]   = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x18, 0x10, 0x01};
+static const uint8_t LAN_VOLUME_UP_RELEASE[] = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x18, 0x10, 0x00};
+static const uint8_t LAN_VOLUME_DOWN_PRESS[]   = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x19, 0x10, 0x01};
+static const uint8_t LAN_VOLUME_DOWN_RELEASE[] = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x19, 0x10, 0x00};
+static const uint8_t LAN_BACK_PRESS[]  = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x04, 0x10, 0x01};
+static const uint8_t LAN_BACK_RELEASE[]= {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x04, 0x10, 0x00};
+static const uint8_t LAN_MENU_PRESS[]  = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x52, 0x10, 0x01};
+static const uint8_t LAN_MENU_RELEASE[]= {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x52, 0x10, 0x00};
+static const uint8_t LAN_SETTINGS_PRESS[]   = {0x09, 0x12, 0x07, 0x0a, 0x05, 0x08, 0xb0, 0x01, 0x10, 0x01};
+static const uint8_t LAN_SETTINGS_RELEASE[] = {0x09, 0x12, 0x07, 0x0a, 0x05, 0x08, 0xb0, 0x01, 0x10, 0x00};
+static const uint8_t LAN_HOME_PRESS[]   = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x03, 0x10, 0x01};
+static const uint8_t LAN_HOME_RELEASE[] = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x03, 0x10, 0x00};
+static const uint8_t LAN_SEARCH_PRESS[]   = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x54, 0x10, 0x01};
+static const uint8_t LAN_SEARCH_RELEASE[] = {0x08, 0x12, 0x06, 0x0a, 0x04, 0x08, 0x54, 0x10, 0x00};
 
 struct LanKey {
   const char* name;
@@ -89,11 +107,24 @@ struct LanKey {
   size_t releaseLen;
 };
 
+struct LanSequenceStep {
+  const LanKey* key;
+  uint32_t afterDelayMs;
+};
+
 static const LanKey KEY_POWER_MENU = {"power_menu", LAN_POWER_MENU_PRESS, sizeof(LAN_POWER_MENU_PRESS), LAN_POWER_MENU_RELEASE, sizeof(LAN_POWER_MENU_RELEASE)};
 static const LanKey KEY_UP         = {"up",         LAN_UP_PRESS,         sizeof(LAN_UP_PRESS),         LAN_UP_RELEASE,         sizeof(LAN_UP_RELEASE)};
 static const LanKey KEY_DOWN       = {"down",       LAN_DOWN_PRESS,       sizeof(LAN_DOWN_PRESS),       LAN_DOWN_RELEASE,       sizeof(LAN_DOWN_RELEASE)};
+static const LanKey KEY_LEFT       = {"left",       LAN_LEFT_PRESS,       sizeof(LAN_LEFT_PRESS),       LAN_LEFT_RELEASE,       sizeof(LAN_LEFT_RELEASE)};
 static const LanKey KEY_RIGHT      = {"right",      LAN_RIGHT_PRESS,      sizeof(LAN_RIGHT_PRESS),      LAN_RIGHT_RELEASE,      sizeof(LAN_RIGHT_RELEASE)};
 static const LanKey KEY_OK         = {"ok",         LAN_OK_PRESS,         sizeof(LAN_OK_PRESS),         LAN_OK_RELEASE,         sizeof(LAN_OK_RELEASE)};
+static const LanKey KEY_VOLUME_UP   = {"volume_up",   LAN_VOLUME_UP_PRESS,   sizeof(LAN_VOLUME_UP_PRESS),   LAN_VOLUME_UP_RELEASE,   sizeof(LAN_VOLUME_UP_RELEASE)};
+static const LanKey KEY_VOLUME_DOWN = {"volume_down", LAN_VOLUME_DOWN_PRESS, sizeof(LAN_VOLUME_DOWN_PRESS), LAN_VOLUME_DOWN_RELEASE, sizeof(LAN_VOLUME_DOWN_RELEASE)};
+static const LanKey KEY_BACK       = {"back",       LAN_BACK_PRESS,       sizeof(LAN_BACK_PRESS),       LAN_BACK_RELEASE,       sizeof(LAN_BACK_RELEASE)};
+static const LanKey KEY_MENU       = {"menu",       LAN_MENU_PRESS,       sizeof(LAN_MENU_PRESS),       LAN_MENU_RELEASE,       sizeof(LAN_MENU_RELEASE)};
+static const LanKey KEY_SETTINGS   = {"settings",   LAN_SETTINGS_PRESS,   sizeof(LAN_SETTINGS_PRESS),   LAN_SETTINGS_RELEASE,   sizeof(LAN_SETTINGS_RELEASE)};
+static const LanKey KEY_HOME       = {"home",       LAN_HOME_PRESS,       sizeof(LAN_HOME_PRESS),       LAN_HOME_RELEASE,       sizeof(LAN_HOME_RELEASE)};
+static const LanKey KEY_SEARCH     = {"search",     LAN_SEARCH_PRESS,     sizeof(LAN_SEARCH_PRESS),     LAN_SEARCH_RELEASE,     sizeof(LAN_SEARCH_RELEASE)};
 
 static inline void waitMs(uint32_t ms) { delay(ms); }
 
@@ -173,6 +204,101 @@ static bool tapLanKey(const LanKey& key, uint32_t afterDelayMs = LAN_STEP_DELAY_
   waitMs(afterDelayMs);
 
   return true;
+}
+
+static const LanKey* findLanKey(const String& name) {
+  if (name == "up") return &KEY_UP;
+  if (name == "down") return &KEY_DOWN;
+  if (name == "left") return &KEY_LEFT;
+  if (name == "right") return &KEY_RIGHT;
+  if (name == "ok" || name == "enter") return &KEY_OK;
+  if (name == "volume_up") return &KEY_VOLUME_UP;
+  if (name == "volume_down") return &KEY_VOLUME_DOWN;
+  if (name == "back") return &KEY_BACK;
+  if (name == "menu") return &KEY_MENU;
+  if (name == "settings") return &KEY_SETTINGS;
+  if (name == "home") return &KEY_HOME;
+  if (name == "search") return &KEY_SEARCH;
+  return nullptr;
+}
+
+static bool parseSequenceDelay(const String& text, uint32_t* delayMs) {
+  if (!text.length()) return false;
+
+  uint32_t value = 0;
+  for (size_t i = 0; i < text.length(); i++) {
+    char c = text.charAt(i);
+    if (c < '0' || c > '9') return false;
+
+    uint32_t digit = c - '0';
+    if (value > (LAN_SEQUENCE_MAX_DELAY_MS - digit) / 10) return false;
+    value = value * 10 + digit;
+  }
+
+  *delayMs = value;
+  return true;
+}
+
+static bool parseLanSequence(const String& payload, LanSequenceStep* steps, size_t* count) {
+  *count = 0;
+  size_t start = 0;
+
+  while (start < payload.length()) {
+    int comma = payload.indexOf(',', start);
+    size_t end = comma < 0 ? payload.length() : static_cast<size_t>(comma);
+    String token = payload.substring(start, end);
+    token.trim();
+
+    if (!token.length() || *count >= LAN_SEQUENCE_MAX_KEYS) return false;
+
+    int delay = token.indexOf('@');
+    if (delay >= 0 && token.indexOf('@', delay + 1) >= 0) {
+      return false;
+    }
+
+    int nameEnd = delay >= 0 ? delay : token.length();
+    String name = token.substring(0, nameEnd);
+    name.trim();
+    const LanKey* key = findLanKey(name);
+    if (!key) return false;
+
+    uint32_t afterDelayMs = LAN_STEP_DELAY_MS;
+    if (delay >= 0) {
+      String delayDuration = token.substring(delay + 1);
+      delayDuration.trim();
+      if (!parseSequenceDelay(delayDuration, &afterDelayMs)) return false;
+    }
+
+    steps[*count] = {key, afterDelayMs};
+    (*count)++;
+
+    if (comma < 0) return true;
+    start = end + 1;
+  }
+
+  return false;
+}
+
+static void runLanSequence(const String& payload) {
+  LanSequenceStep steps[LAN_SEQUENCE_MAX_KEYS];
+  size_t count = 0;
+
+  if (!parseLanSequence(payload, steps, &count)) {
+    Serial.println("Invalid LAN key sequence");
+    publishState("sequence_invalid");
+    return;
+  }
+
+  publishState("sequence_start");
+  for (size_t i = 0; i < count; i++) {
+    uint32_t afterDelayMs = i + 1 == count ? 0 : steps[i].afterDelayMs;
+    if (!tapLanKey(*steps[i].key, afterDelayMs)) {
+      publishState("sequence_key_failed");
+      return;
+    }
+  }
+
+  publishState("sequence_done");
 }
 
 static void macroHdmiLan(const char* inputName, uint8_t rightPresses) {
@@ -331,6 +457,11 @@ static void mqttCallback(char* topic, byte* payload, unsigned int len) {
 
   Serial.print("MQTT: "); Serial.print(t); Serial.print(" -> "); Serial.println(msg);
 
+  if (t == TOPIC_SEQUENCE) {
+    runLanSequence(msg);
+    return;
+  }
+
   if (t != TOPIC_CMD) return;
 
   if (msg == "wake") {
@@ -353,10 +484,26 @@ static void mqttCallback(char* topic, byte* payload, unsigned int len) {
     tapLanKey(KEY_UP);
   } else if (msg == "down") {
     tapLanKey(KEY_DOWN);
+  } else if (msg == "left") {
+    tapLanKey(KEY_LEFT);
   } else if (msg == "right") {
     tapLanKey(KEY_RIGHT);
   } else if (msg == "ok" || msg == "enter") {
     tapLanKey(KEY_OK);
+  } else if (msg == "volume_up") {
+    tapLanKey(KEY_VOLUME_UP);
+  } else if (msg == "volume_down") {
+    tapLanKey(KEY_VOLUME_DOWN);
+  } else if (msg == "back") {
+    tapLanKey(KEY_BACK);
+  } else if (msg == "menu") {
+    tapLanKey(KEY_MENU);
+  } else if (msg == "settings") {
+    tapLanKey(KEY_SETTINGS);
+  } else if (msg == "home") {
+    tapLanKey(KEY_HOME);
+  } else if (msg == "search") {
+    tapLanKey(KEY_SEARCH);
   } else {
     publishState("unknown_cmd");
   }
@@ -374,6 +521,7 @@ static void mqttEnsureConnected() {
     if (ok) {
       Serial.println("OK");
       mqtt.subscribe(TOPIC_CMD);
+      mqtt.subscribe(TOPIC_SEQUENCE);
       publishState("online");
     } else {
       Serial.print("FAIL rc=");
@@ -406,7 +554,7 @@ void setup() {
   mqtt.setCallback(mqttCallback);
   mqttEnsureConnected();
 
-  Serial.println("Ready. Publish 'wake', 'on', 'hdmi1', 'hdmi2', 'wake_hdmi2', 'power_menu', 'power_off', 'up', 'down', 'right', or 'ok' to jmgo/remote/cmd");
+  Serial.println("Ready. Publish a documented command to jmgo/remote/cmd");
 }
 
 void loop() {

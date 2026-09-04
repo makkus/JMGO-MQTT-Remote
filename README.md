@@ -48,6 +48,7 @@ Default topics:
 
 ```text
 jmgo/remote/cmd
+jmgo/remote/sequence
 jmgo/remote/state
 ```
 
@@ -62,7 +63,34 @@ Supported commands:
 | `hdmi2` | Runs the LAN navigation macro for HDMI2 |
 | `power_menu` | Opens the projector power menu |
 | `power_off`, `off` | Opens the power menu, moves down, and confirms shutdown |
-| `up`, `down`, `right`, `ok`, `enter` | Sends individual LAN remote keys |
+| `up`, `down`, `left`, `right`, `ok`, `enter` | Sends individual LAN navigation keys |
+| `back`, `home`, `menu`, `settings` | Sends the corresponding remote button |
+| `volume_up`, `volume_down` | Raises or lowers the projector volume |
+| `search` | Opens Android text search |
+
+## Button Sequences
+
+Publish a comma-separated sequence to `jmgo/remote/sequence` to send several
+LAN buttons in order. Each item is a supported button name, optionally followed
+by `@<milliseconds>` to override the delay after key-up. Buttons use the normal
+120 ms press duration. The final item's delay is ignored.
+
+```text
+menu@250,menu
+up,up,right@300,ok
+```
+
+For example:
+
+```bash
+mosquitto_pub -h <mqtt-host> -p 1883 -u <user> -P '<password>' -t jmgo/remote/sequence -m 'menu@250,menu'
+```
+
+Sequences accept the individual LAN buttons listed above (including `enter` as
+an alias for `ok`), up to 16 items. Invalid input, unknown buttons, or delays
+over 60 seconds are rejected without sending any buttons.
+The state topic reports `sequence_start`, `sequence_done`, `sequence_invalid`,
+or `sequence_key_failed`.
 
 Example:
 
