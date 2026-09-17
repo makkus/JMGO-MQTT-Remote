@@ -73,11 +73,13 @@ Supported commands:
 Publish a comma-separated sequence to `jmgo/remote/sequence` to send several
 LAN buttons in order. Each item is a supported button name, optionally followed
 by `@<milliseconds>` to override the delay after key-up. Buttons use the normal
-120 ms press duration. The final item's delay is ignored.
+120 ms press duration. The special `wake` action sends the BLE wake burst. The
+final item's delay is ignored.
 
 ```text
 menu@250,menu
 up,up,right@300,ok
+wake@60000,home
 ```
 
 For example:
@@ -87,8 +89,10 @@ mosquitto_pub -h <mqtt-host> -p 1883 -u <user> -P '<password>' -t jmgo/remote/se
 ```
 
 Sequences accept the individual LAN buttons listed above (including `enter` as
-an alias for `ok`), up to 16 items. Invalid input, unknown buttons, or delays
-over 60 seconds are rejected without sending any buttons.
+an alias for `ok`) and `wake`, up to 16 items. For example,
+`wake@60000,home` wakes the projector, waits 60 seconds, then opens Home.
+Invalid input, unknown buttons, or delays over 60 seconds are rejected without
+sending any buttons.
 The state topic reports `sequence_start`, `sequence_done`, `sequence_invalid`,
 or `sequence_key_failed`.
 

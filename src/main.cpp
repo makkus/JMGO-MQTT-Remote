@@ -107,7 +107,13 @@ struct LanKey {
   size_t releaseLen;
 };
 
+enum class SequenceAction {
+  LanKey,
+  Wake,
+};
+
 struct LanSequenceStep {
+  SequenceAction action;
   const LanKey* key;
   uint32_t afterDelayMs;
 };
@@ -259,8 +265,13 @@ static bool parseLanSequence(const String& payload, LanSequenceStep* steps, size
     int nameEnd = delay >= 0 ? delay : token.length();
     String name = token.substring(0, nameEnd);
     name.trim();
+    SequenceAction action = SequenceAction::LanKey;
     const LanKey* key = findLanKey(name);
-    if (!key) return false;
+    if (name == "wake") {
+      action = SequenceAction::Wake;
+    } else if (!key) {
+      return false;
+    }
 
     uint32_t afterDelayMs = LAN_STEP_DELAY_MS;
     if (delay >= 0) {
@@ -269,7 +280,7 @@ static bool parseLanSequence(const String& payload, LanSequenceStep* steps, size
       if (!parseSequenceDelay(delayDuration, &afterDelayMs)) return false;
     }
 
-    steps[*count] = {key, afterDelayMs};
+    steps[*count] = {action, key, afterDelayMs};
     (*count)++;
 
     if (comma < 0) return true;
@@ -292,7 +303,10 @@ static void runLanSequence(const String& payload) {
   publishState("sequence_start");
   for (size_t i = 0; i < count; i++) {
     uint32_t afterDelayMs = i + 1 == count ? 0 : steps[i].afterDelayMs;
-    if (!tapLanKey(*steps[i].key, afterDelayMs)) {
+    if (steps[i].action == SequenceAction::Wake) {
+      sendWakeAdvertisingBurst();
+      waitMs(afterDelayMs);
+    } else if (!tapLanKey(*steps[i].key, afterDelayMs)) {
       publishState("sequence_key_failed");
       return;
     }
